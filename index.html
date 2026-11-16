@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Control de gastos</title>
+<meta name="description" content="Tus finanzas, claras y sencillas.">
+<meta name="theme-color" content="#e2eaff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gastos">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+<style>
+  :root {
+    --texto: #1c1c1e;
+    --gris: #64687a;
+    --acento: #0a84ff;
+    --verde: #1ea055;
+    --rojo: #dc3237;
+    --cristal: rgba(255, 255, 255, .52);
+    --borde: rgba(255, 255, 255, .85);
+    --sombra: 0 10px 34px rgba(40, 50, 90, .13);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { background: #e9eeff; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, system-ui, sans-serif;
+    color: var(--texto);
+    background:
+      radial-gradient(60vmax 60vmax at 5% 8%, rgba(90, 150, 255, .55), transparent 70%),
+      radial-gradient(60vmax 60vmax at 98% 28%, rgba(255, 120, 190, .5), transparent 70%),
+      radial-gradient(60vmax 60vmax at 45% 100%, rgba(80, 220, 190, .5), transparent 70%),
+      linear-gradient(135deg, #e2eaff, #ffe9f4);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+
+  /* ---------- Cristal ---------- */
+  .glass {
+    background: var(--cristal);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    backdrop-filter: blur(20px) saturate(1.5);
+    border: 1px solid var(--borde);
+    border-radius: 26px;
+    box-shadow: var(--sombra);
+  }
+
+  /* ---------- Avatares (icono redondo con color suave) ---------- */
+  .av {
+    --s: 32px;
+    flex: none;
+    width: var(--s); height: var(--s);
+    border-radius: 50%;
+    display: inline-grid; place-items: center;
+    font-size: calc(var(--s) * .5);
+    line-height: 1;
+    background: rgb(var(--cr) / .26);
+    border: 1px solid rgb(var(--cr) / .5);
+  }
+
+  /* ---------- App ---------- */
+  #app {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    opacity: 0;
+    transform: translateY(26px);
+    transition: opacity .7s ease, transform .7s cubic-bezier(.2, .8, .2, 1);
+  }
+  #app.ver { opacity: 1; transform: none; }
+
+  header {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 10px 16px; padding: 4px 4px 14px;
+  }
+  .marca { display: flex; align-items: center; gap: 12px; }
+  .icono-app {
+    width: 44px; height: 44px; border-radius: 14px;
+    background: linear-gradient(135deg, #4ba5ff, #6258e8);
+    display: grid; place-items: center;
+    color: #fff; font-weight: 700; font-size: 25px;
+    box-shadow: 0 6px 16px rgba(60, 80, 220, .35), inset 0 1px 0 rgba(255, 255, 255, .45);
+  }
+  h1 { margin: 0; font-size: 24px; letter-spacing: -.3px; }
+  .derecha { display: flex; align-items: center; gap: 14px; }
+  .donar {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px 8px 12px; border-radius: 999px;
+    background: rgba(255, 255, 255, .6); border: 1px solid var(--borde);
+    color: var(--texto); text-decoration: none; font-weight: 600; font-size: 13px;
+    transition: background .2s, transform .2s;
+  }
+  .donar:hover { background: rgba(255, 255, 255, .9); transform: translateY(-1px); }
+  .donar svg { width: 16px; height: 16px; fill: #ff375f; }
+  .saludo-bloque { text-align: right; line-height: 1.25; }
+  #saludo { font-weight: 700; font-size: 15px; cursor: pointer; background: none; border: 0; padding: 0; }
+  #fecha { font-size: 12px; color: var(--gris); }
+
+  .principal { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+  .principal > * { min-width: 0; }
+  @media (min-width: 860px) { .principal { grid-template-columns: 340px minmax(0, 1fr); align-items: start; } }
+
+  /* ---------- Tarjetas de totales ---------- */
+  .tarjetas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .tarjeta { padding: 14px 16px; position: relative; overflow: hidden; }
+  .tarjeta .t { font-size: 13px; color: var(--gris); }
+  .tarjeta .v { font-size: clamp(17px, 2.3vw, 23px); font-weight: 800; margin-top: 4px; white-space: nowrap; }
+  .tarjeta .ic {
+    position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 800; font-size: 14px;
+  }
+  @media (max-width: 560px) {
+    .tarjetas { grid-template-columns: 1fr 1fr; }
+    .tarjeta:last-child { grid-column: span 2; }
+  }
+
+  /* ---------- Formulario ---------- */
+  .form { padding: 18px; }
+  .form h2, .lista h2 { margin: 0 0 12px; font-size: 17px; }
+  .segmentado {
+    display: grid; grid-template-columns: 1fr 1fr; padding: 3px; margin-bottom: 14px;
+    background: rgba(120, 120, 140, .17); border-radius: 999px;
+  }
+  .segmentado button {
+    border: 0; background: none; padding: 9px 0; border-radius: 999px;
+    font-weight: 700; color: var(--gris); transition: all .25s;
+  }
+  .segmentado button.on { background: rgba(255, 255, 255, .95); color: var(--acento); box-shadow: 0 2px 8px rgba(0, 0, 0, .12); }
+
+  .etiqueta { display: flex; justify-content: space-between; align-items: center; margin: 2px 2px 8px; }
+  .etiqueta span { font-size: 12px; font-weight: 700; color: var(--gris); }
+  .link { background: none; border: 0; padding: 2px 4px; color: var(--acento); font-weight: 600; font-size: 12px; }
+
+  .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .chip {
+    display: flex; align-items: center; gap: 8px; min-width: 0; position: relative;
+    padding: 6px 10px 6px 6px; border-radius: 18px; text-align: left;
+    background: rgba(255, 255, 255, .6); border: 1px solid rgba(255, 255, 255, .9);
+    transition: background .2s, transform .15s;
+  }
+  .chip:hover { background: rgba(255, 255, 255, .85); }
+  .chip:active { transform: scale(.97); }
+  .chip .av { --s: 28px; }
+  .chip .nom { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip.sel { background: rgb(var(--cr) / .2); border: 2px solid rgb(var(--cr) / .9); padding: 5px 9px 5px 5px; font-weight: 700; }
+  .chip.borrar { animation: tiembla .5s ease-in-out infinite alternate; }
+  .chip.borrar::after {
+    content: "×"; position: absolute; top: -6px; right: -4px; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--rojo); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px;
+  }
+  @keyframes tiembla { from { transform: rotate(-1.2deg); } to { transform: rotate(1.2deg); } }
+  .chip.nueva {
+    justify-content: center; padding: 8px; color: var(--acento); font-weight: 700; font-size: 13px;
+    border: 1.5px dashed rgba(60, 60, 90, .35); background: rgba(255, 255, 255, .35);
+  }
+
+  .campo {
+    width: 100%; padding: 12px 14px; margin-bottom: 10px; font-size: 16px; /* 16px evita el zoom en iPhone */
+    background: rgba(255, 255, 255, .72); border: 1px solid rgba(60, 60, 90, .15); border-radius: 16px; outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .campo::placeholder { color: #8a8e9c; }
+  .campo:focus { border-color: rgba(10, 132, 255, .8); box-shadow: 0 0 0 3px rgba(10, 132, 255, .18); }
+
+  .boton {
+    width: 100%; border: 1px solid rgba(255, 255, 255, .35); border-radius: 16px; padding: 13px 18px;
+    color: #fff; font-weight: 700; font-size: 15px;
+    background: linear-gradient(180deg, #3b9bff, #0a7cf0);
+    box-shadow: 0 6px 16px rgba(10, 132, 255, .32), inset 0 1px 0 rgba(255, 255, 255, .35);
+    transition: transform .15s, filter .2s;
+  }
+  .boton:hover { filter: brightness(1.06); }
+  .boton:active { transform: scale(.98); }
+  .boton.gris { background: linear-gradient(180deg, #8d93a6, #70768a); box-shadow: 0 4px 12px rgba(80, 85, 110, .25), inset 0 1px 0 rgba(255, 255, 255, .3); }
+  .error { min-height: 18px; margin: 0 2px 6px; font-size: 12.5px; color: var(--rojo); }
+
+  /* ---------- Lista de movimientos ---------- */
+  .lista { padding: 18px 14px 12px; }
+  .lista h2 { padding: 0 6px; }
+  .fila { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-bottom: 1px solid rgba(60, 60, 90, .09); animation: entra .35s ease both; }
+  .fila:last-child { border-bottom: 0; }
+  @keyframes entra { from { opacity: 0; transform: translateY(8px); } }
+  .fila .av { --s: 40px; }
+  .fila .info { flex: 1; min-width: 0; }
+  .fila .cat { font-weight: 700; font-size: 14px; }
+  .fila .desc { font-size: 12.5px; color: var(--gris); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fila .monto { font-weight: 800; font-size: 14px; white-space: nowrap; }
+  .fila .x {
+    width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(120, 120, 140, .14);
+    color: var(--gris); font-size: 16px; line-height: 1; transition: background .2s, color .2s;
+  }
+  .fila .x:hover { background: var(--rojo); color: #fff; }
+  .vacio { text-align: center; padding: 50px 16px; color: var(--gris); }
+  .vacio b { display: block; font-size: 15px; margin-bottom: 4px; }
+
+  footer { text-align: center; padding: 22px 8px 4px; font-size: 12.5px; color: var(--gris); }
+  footer .link { font-size: 12.5px; }
+
+  /* ---------- Ventana "Nueva categoría" ---------- */
+  #modal {
+    position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center;
+    padding: 16px; background: rgba(30, 35, 60, .32);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  }
+  #modal.abierto { display: flex; animation: fundido .25s ease; }
+  @keyframes fundido { from { opacity: 0; } }
+  .dialogo { width: min(420px, 100%); max-height: 94dvh; overflow: auto; padding: 20px; background: rgba(255, 255, 255, .72); animation: sube .35s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes sube { from { transform: translateY(24px) scale(.97); opacity: 0; } }
+  .dialogo h3 { margin: 0 0 14px; font-size: 18px; }
+  .fila-nombre { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .fila-nombre .av { --s: 62px; font-size: 30px; }
+  .fila-nombre .campo { margin: 0; }
+  .rejilla { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 14px; }
+  .ico {
+    aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; font-size: 20px; padding: 0;
+    background: rgba(255, 255, 255, .65); border: 1px solid rgba(255, 255, 255, .95);
+    transition: transform .15s, background .2s;
+  }
+  .ico:hover { background: #fff; transform: scale(1.06); }
+  .ico.sel { background: rgb(var(--cr) / .28); border: 2px solid rgb(var(--cr)); }
+  .colores { display: flex; justify-content: space-between; margin: 2px 2px 18px; }
+  .punto { width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgb(var(--cr)); transition: transform .15s; }
+  .punto:hover { transform: scale(1.12); }
+  .punto.sel { box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgb(var(--cr) / .85); }
+  .botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* ---------- Bienvenida ---------- */
+  #bienvenida {
+    position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
+    padding: 20px; text-align: center; overflow: auto;
+    background:
+      radial-gradient(60vmax 60vmax at 5% 8%, rgba(90, 150, 255, .55), transparent 70%),
+      radial-gradient(60vmax 60vmax at 98% 28%, rgba(255, 120, 190, .5), transparent 70%),
+      radial-gradient(60vmax 60vmax at 45% 100%, rgba(80, 220, 190, .5), transparent 70%),
+      linear-gradient(135deg, #e2eaff, #ffe9f4);
+    transition: opacity .6s ease, transform .6s ease;
+  }
+  #bienvenida.salir { opacity: 0; transform: scale(1.05); pointer-events: none; }
+  #bc { width: min(420px, 100%); transition: opacity .25s; }
+  #bc.fuera { opacity: 0; }
+  .ap { opacity: 0; animation: aparece .7s cubic-bezier(.2, .8, .2, 1) forwards; }
+  @keyframes aparece { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+  .gran-icono {
+    width: 104px; height: 104px; margin: 0 auto 26px; border-radius: 31px;
+    background: linear-gradient(135deg, #4ba5ff, #6258e8);
+    display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 60px;
+    box-shadow: 0 16px 38px rgba(60, 80, 220, .38), inset 0 1px 0 rgba(255, 255, 255, .5);
+    animation: aparece .7s cubic-bezier(.2, .8, .2, 1) forwards, flota 3.4s ease-in-out .7s infinite;
+  }
+  @keyframes flota { 50% { transform: translateY(-5px); } }
+  .mini-titulo { font-size: 12px; font-weight: 800; letter-spacing: 3px; color: var(--acento); margin-bottom: 8px; }
+  #bienvenida h2 { margin: 0 0 6px; font-size: clamp(26px, 8vw, 40px); letter-spacing: -.8px; line-height: 1.1; }
+  .sub { color: var(--gris); font-size: 16px; margin: 0 0 26px; }
+  .tarjeta-b { padding: 16px 20px; margin-bottom: 22px; }
+  .tarjeta-b .t { font-size: 13px; color: var(--gris); }
+  .tarjeta-b .grande { font-size: clamp(30px, 9vw, 40px); font-weight: 800; color: var(--acento); margin: 2px 0 10px; }
+  .tarjeta-b .grande.neg { color: var(--rojo); }
+  .tarjeta-b .pie { font-size: 11px; color: var(--gris); margin-top: -4px; }
+  .mini-stats { display: flex; justify-content: space-around; border-top: 1px solid rgba(60, 60, 90, .1); padding-top: 10px; }
+  .mini-stats small { display: block; font-size: 11px; color: var(--gris); }
+  .mini-stats b { font-size: 14px; }
+  .btn-grande { width: 220px; max-width: 100%; border-radius: 999px; padding: 15px; font-size: 17px; box-shadow: 0 10px 26px rgba(10, 132, 255, .38), inset 0 1px 0 rgba(255, 255, 255, .35); }
+  .btn-grande:disabled { opacity: .55; cursor: default; }
+  .pista { margin-top: 14px; font-size: 12.5px; color: var(--gris); }
+  .pista .link { font-size: 12.5px; color: var(--gris); }
+  .pista .link:hover { color: var(--acento); text-decoration: underline; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+
+<body>
+
+<!-- ======================= BIENVENIDA ======================= -->
+<div id="bienvenida"><div id="bc"></div></div>
+
+<!-- ======================= APP ======================= -->
+<div id="app">
+  <header>
+    <div class="marca">
+      <div class="icono-app">€</div>
+      <h1>Control de gastos</h1>
+    </div>
+    <div class="derecha">
+      <a class="donar" href="https://ko-fi.com/sgdevapps" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 5 6.3 5c2 0 3.7 1.1 5.7 3.2C14 6.1 15.7 5 17.7 5 21 5 23.1 8.3 21.6 11.7 19.5 16.4 12 21 12 21z"/></svg>
+        Apoya este proyecto
+      </a>
+      <div class="saludo-bloque">
+        <button id="saludo" title="Toca para cambiar tu nombre"></button>
+        <div id="fecha"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="tarjetas">
+    <div class="glass tarjeta"><div class="t">Ingresos</div><div class="v" id="tIng" style="color:var(--verde)"></div><div class="ic" style="background:rgba(30,160,85,.16);color:var(--verde)">↑</div></div>
+    <div class="glass tarjeta"><div class="t">Gastos</div><div class="v" id="tGas" style="color:var(--rojo)"></div><div class="ic" style="background:rgba(220,50,55,.14);color:var(--rojo)">↓</div></div>
+    <div class="glass tarjeta"><div class="t">Balance</div><div class="v" id="tBal"></div><div class="ic" style="background:rgba(10,132,255,.14);color:var(--acento)">€</div></div>
+  </div>
+
+  <div class="principal">
+    <section class="glass form">
+      <h2>Nuevo movimiento</h2>
+      <div class="segmentado">
+        <button type="button" id="segGasto" class="on">Gasto</button>
+        <button type="button" id="segIngreso">Ingreso</button>
+      </div>
+      <div class="etiqueta"><span>Categoría</span><button type="button" class="link" id="btnEditar">Editar</button></div>
+      <div class="chips" id="chips"></div>
+      <input class="campo" id="desc" placeholder="Descripción (opcional)" maxlength="60" autocomplete="off">
+      <input class="campo" id="monto" placeholder="Monto en €" inputmode="decimal" autocomplete="off">
+      <div class="error" id="error"></div>
+      <button type="button" class="boton" id="btnAnadir">Añadir movimiento</button>
+    </section>
+
+    <section class="glass lista">
+      <h2>Movimientos</h2>
+      <div id="movs"></div>
+    </section>
+  </div>
+
+  <footer>
+    <button class="link" id="btnExportar">Exportar copia</button> ·
+    <button class="link" id="btnImportar">Importar copia</button>
+    <input type="file" id="archivo" accept=".json,application/json" hidden>
+    <div style="margin-top:8px">Tus datos se guardan solo en este dispositivo.</div>
+  </footer>
+</div>
+
+<!-- ======================= NUEVA CATEGORÍA ======================= -->
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitulo">
+  <div class="glass dialogo">
+    <h3 id="mTitulo">Nueva categoría</h3>
+    <div class="fila-nombre">
+      <span class="av" id="mVista"></span>
+      <input class="campo" id="mNombre" placeholder="Nombre de la categoría" maxlength="18" autocomplete="off">
+    </div>
+    <div class="error" id="mError"></div>
+    <div class="etiqueta"><span>Icono</span></div>
+    <div class="rejilla" id="mIconos"></div>
+    <div class="etiqueta"><span>Color</span></div>
+    <div class="colores" id="mColores"></div>
+    <div class="botones">
+      <button type="button" class="boton gris" id="mCancelar">Cancelar</button>
+      <button type="button" class="boton" id="mCrear">Crear categoría</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   DATOS BÁSICOS
+   ===================================================================== */
+const PALETA = [
+  [255, 69, 58], [255, 159, 10], [255, 214, 10], [52, 199, 89], [48, 176, 199],
+  [10, 132, 255], [94, 92, 230], [191, 90, 242], [255, 55, 95], [142, 142, 147]
+];
+const EMOJIS = [
+  0x1F3E0, 0x1F6D2, 0x1F354, 0x1F355, 0x1F697, 0x26FD,
+  0x1F9FE, 0x1F4A1, 0x1F4F1, 0x1F3AC, 0x1F3AE, 0x1F3B5,
+  0x1F334, 0x1F3E5, 0x1F48A, 0x1F393, 0x1F4DA, 0x1F455,
+  0x1F436, 0x1F381, 0x26BD, 0x1F377, 0x1F4BC, 0x1F4B8,
+  0x1F4B0, 0x1F4B3, 0x1F3E6, 0x1F4C8, 0x1F4E6, 0x2B50
+].map(c => String.fromCodePoint(c) + '️');
+const E = c => String.fromCodePoint(c) + '️';
+
+function categoriasPorDefecto() {
+  return [
+    { tipo: 'GASTO', nombre: 'Casa', emoji: E(0x1F3E0), color: 5 },
+    { tipo: 'GASTO', nombre: 'Comida', emoji: E(0x1F354), color: 1 },
+    { tipo: 'GASTO', nombre: 'Coche', emoji: E(0x1F697), color: 4 },
+    { tipo: 'GASTO', nombre: 'Facturas', emoji: E(0x1F9FE), color: 2 },
+    { tipo: 'GASTO', nombre: 'Ocio', emoji: E(0x1F3AC), color: 7 },
+    { tipo: 'GASTO', nombre: 'Vacaciones', emoji: E(0x1F334), color: 3 },
+    { tipo: 'GASTO', nombre: 'Salud', emoji: E(0x1F3E5), color: 0 },
+    { tipo: 'GASTO', nombre: 'Otros', emoji: E(0x1F4E6), color: 9 },
+    { tipo: 'INGRESO', nombre: 'Sueldo', emoji: E(0x1F4BC), color: 3 },
+    { tipo: 'INGRESO', nombre: 'Extras', emoji: E(0x1F4B8), color: 6 },
+    { tipo: 'INGRESO', nombre: 'Otros ingresos', emoji: E(0x1F4B0), color: 2 }
+  ];
+}
+
+/* =====================================================================
+   GUARDADO (en el propio dispositivo)
+   ===================================================================== */
+const CLAVE = 'controlGastos.v1';
+let respaldo = null; // por si el navegador no deja usar localStorage
+
+function validar(d) {
+  if (!d || typeof d !== 'object') return null;
+  const cats = Array.isArray(d.categorias) ? d.categorias.filter(c =>
+    c && (c.tipo === 'GASTO' || c.tipo === 'INGRESO') && typeof c.nombre === 'string' && typeof c.emoji === 'string') : [];
+  const movs = Array.isArray(d.movs) ? d.movs.filter(m =>
+    m && (m.tipo === 'GASTO' || m.tipo === 'INGRESO') && typeof m.categoria === 'string' && Number.isFinite(m.monto)) : [];
+  return {
+    nombre: typeof d.nombre === 'string' ? limpiarNombre(d.nombre) : '',
+    perfil: !!d.perfil,
+    categorias: cats.length ? cats.map(c => ({ ...c, color: Math.abs(c.color | 0) % PALETA.length })) : categoriasPorDefecto(),
+    movs: movs.map(m => ({ tipo: m.tipo, categoria: m.categoria, desc: String(m.desc || ''), monto: m.monto, fecha: m.fecha || '' }))
+  };
+}
+
+function cargarEstado() {
+  let texto = null;
+  try { texto = localStorage.getItem(CLAVE); } catch (e) { /* sin acceso */ }
+  try {
+    const d = texto ? JSON.parse(texto) : respaldo;
+    const ok = validar(d);
+    if (ok) return ok;
+  } catch (e) { /* datos dañados */ }
+  return { nombre: '', perfil: false, categorias: categoriasPorDefecto(), movs: [] };
+}
+
+function guardar() {
+  const texto = JSON.stringify(estado);
+  respaldo = JSON.parse(texto);
+  try { localStorage.setItem(CLAVE, texto); } catch (e) { /* sin acceso */ }
+}
+
+/* =====================================================================
+   AYUDAS
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const euro = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
+const fmt = n => euro.format(n);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const rgb = i => PALETA[i].join(' ');
+const av = (cat, extra = '') => `<span class="av" ${extra} style="--cr:${rgb(cat.color)}">${cat.emoji}</span>`;
+
+function saludo() {
+  const h = new Date().getHours();
+  return h >= 6 && h < 13 ? 'Buenos días' : h >= 13 && h < 21 ? 'Buenas tardes' : 'Buenas noches';
+}
+function fechaDeHoy() {
+  const f = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  return f.charAt(0).toUpperCase() + f.slice(1).replace(',', ',');
+}
+function limpiarNombre(n) {
+  n = String(n).trim().replace(/;/g, ' ');
+  if (n.length > 20) n = n.slice(0, 20).trim();
+  return n ? n.charAt(0).toUpperCase() + n.slice(1) : '';
+}
+const totales = () => {
+  let i = 0, g = 0;
+  estado.movs.forEach(m => { if (m.tipo === 'INGRESO') i += m.monto; else g += m.monto; });
+  return { i, g, b: i - g };
+};
+const buscarCat = (tipo, nombre) =>
+  estado.categorias.find(c => c.tipo === tipo && c.nombre.toLowerCase() === String(nombre).toLowerCase());
+
+/* =====================================================================
+   ESTADO
+   ===================================================================== */
+let estado = cargarEstado();
+let tipo = 'GASTO';
+let catSel = null;
+let editando = false;
+
+/* =====================================================================
+   PINTAR LA APP
+   ===================================================================== */
+function pintarCabecera() {
+  $('#saludo').textContent = saludo() + (estado.nombre ? ', ' + estado.nombre : '');
+  $('#fecha').textContent = fechaDeHoy();
+}
+
+function pintarTarjetas() {
+  const t = totales();
+  $('#tIng').textContent = fmt(t.i);
+  $('#tGas').textContent = fmt(t.g);
+  const b = $('#tBal');
+  b.textContent = fmt(t.b);
+  b.style.color = t.b < 0 ? 'var(--rojo)' : 'var(--acento)';
+}
+
+function pintarChips() {
+  const lista = estado.categorias.filter(c => c.tipo === tipo);
+  if (!catSel || catSel.tipo !== tipo || !estado.categorias.includes(catSel)) catSel = lista[0] || null;
+  const cont = $('#chips');
+  cont.innerHTML = '';
+  lista.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (!editando && c === catSel ? ' sel' : '') + (editando ? ' borrar' : '');
+    b.style.setProperty('--cr', rgb(c.color));
+    b.innerHTML = av(c) + `<span class="nom">${esc(c.nombre)}</span>`;
+    b.onclick = () => {
+      if (editando) eliminarCategoria(c);
+      else { catSel = c; pintarChips(); }
+    };
+    cont.appendChild(b);
+  });
+  const n = document.createElement('button');
+  n.type = 'button';
+  n.className = 'chip nueva';
+  n.textContent = '+ Nueva';
+  n.onclick = abrirModal;
+  cont.appendChild(n);
+  $('#btnEditar').textContent = editando ? 'Listo' : 'Editar';
+}
+
+function pintarMovs() {
+  const cont = $('#movs');
+  if (!estado.movs.length) {
+    cont.innerHTML = '<div class="vacio"><b>Aún no hay movimientos</b>Elige una categoría y añade el primero</div>';
+    return;
+  }
+  cont.innerHTML = '';
+  for (let i = estado.movs.length - 1; i >= 0; i--) {
+    const m = estado.movs[i];
+    const cat = buscarCat(m.tipo, m.categoria) || { nombre: m.categoria, emoji: E(0x1F4E6), color: 9 };
+    const ing = m.tipo === 'INGRESO';
+    const fecha = m.fecha ? new Date(m.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '';
+    const fila = document.createElement('div');
+    fila.className = 'fila';
+    fila.innerHTML = `${av(cat)}
+      <div class="info"><div class="cat">${esc(cat.nombre)}</div>
+      <div class="desc">${esc([m.desc, fecha].filter(Boolean).join(' · '))}</div></div>
+      <div class="monto" style="color:var(${ing ? '--verde' : '--rojo'})">${ing ? '+' : '−'}${fmt(m.monto)}</div>
+      <button type="button" class="x" aria-label="Eliminar movimiento">×</button>`;
+    fila.querySelector('.x').onclick = () => {
+      if (confirm('¿Eliminar este movimiento?')) {
+        estado.movs.splice(i, 1);
+        guardar(); pintarMovs(); pintarTarjetas();
+      }
+    };
+    cont.appendChild(fila);
+  }
+}
+
+/* =====================================================================
+   ACCIONES
+   ===================================================================== */
+function cambiarTipo(t) {
+  tipo = t;
+  $('#segGasto').classList.toggle('on', t === 'GASTO');
+  $('#segIngreso').classList.toggle('on', t === 'INGRESO');
+  pintarChips();
+}
+
+function mostrarError(texto) {
+  $('#error').textContent = texto;
+  clearTimeout(mostrarError.t);
+  mostrarError.t = setTimeout(() => { $('#error').textContent = ''; }, 3500);
+}
+
+function anadir() {
+  if (!catSel) return mostrarError('Elige una categoría o crea una con "+ Nueva".');
+  const monto = Number($('#monto').value.trim().replace(/\s/g, '').replace(',', '.'));
+  if (!Number.isFinite(monto) || $('#monto').value.trim() === '') return mostrarError('El monto debe ser un número (ej: 12,50).');
+  if (monto <= 0) return mostrarError('El monto debe ser mayor que 0.');
+  if (monto > 1e9) return mostrarError('Ese monto es demasiado grande.');
+  estado.movs.push({
+    tipo, categoria: catSel.nombre, desc: $('#desc').value.trim(),
+    monto: Math.round(monto * 100) / 100, fecha: new Date().toISOString()
+  });
+  guardar();
+  $('#desc').value = ''; $('#monto').value = '';
+  $('#error').textContent = '';
+  pintarMovs(); pintarTarjetas();
+  $('#desc').focus();
+}
+
+function eliminarCategoria(c) {
+  if (!confirm(`¿Eliminar la categoría "${c.nombre}"?\nLos movimientos que ya la usan se mantienen.`)) return;
+  estado.categorias.splice(estado.categorias.indexOf(c), 1);
+  guardar();
+  pintarChips(); pintarMovs();
+}
+
+function cambiarNombre() {
+  const r = prompt('¿Cómo quieres que te llame?', estado.nombre);
+  if (r === null) return;
+  estado.nombre = limpiarNombre(r);
+  estado.perfil = true;
+  guardar();
+  pintarCabecera();
+}
+
+/* =====================================================================
+   NUEVA CATEGORÍA
+   ===================================================================== */
+const nueva = { emoji: EMOJIS[0], color: 0 };
+
+function pintarModal() {
+  const vista = $('#mVista');
+  vista.textContent = nueva.emoji;
+  vista.style.setProperty('--cr', rgb(nueva.color));
+  document.querySelectorAll('#mIconos .ico').forEach(b => {
+    b.classList.toggle('sel', b.dataset.e === nueva.emoji);
+    b.style.setProperty('--cr', rgb(nueva.color));
+  });
+  document.querySelectorAll('#mColores .punto').forEach(b =>
+    b.classList.toggle('sel', Number(b.dataset.c) === nueva.color));
+}
+
+function abrirModal() {
+  nueva.emoji = EMOJIS[0];
+  nueva.color = estado.categorias.length % PALETA.length;
+  $('#mTitulo').textContent = 'Nueva categoría de ' + (tipo === 'GASTO' ? 'gastos' : 'ingresos');
+  $('#mNombre').value = '';
+  $('#mError').textContent = '';
+  pintarModal();
+  $('#modal').classList.add('abierto');
+  setTimeout(() => $('#mNombre').focus(), 60);
+}
+function cerrarModal() { $('#modal').classList.remove('abierto'); }
+
+function crearCategoria() {
+  let nombre = $('#mNombre').value.trim().replace(/;/g, ',');
+  if (!nombre) { $('#mError').textContent = 'Escribe un nombre para la categoría.'; $('#mNombre').focus(); return; }
+  nombre = nombre.slice(0, 18);
+  if (buscarCat(tipo, nombre)) { $('#mError').textContent = 'Ya existe una categoría con ese nombre.'; return; }
+  const c = { tipo, nombre, emoji: nueva.emoji, color: nueva.color };
+  estado.categorias.push(c);
+  catSel = c;
+  guardar();
+  cerrarModal();
+  pintarChips();
+}
+
+EMOJIS.forEach(e => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'ico'; b.textContent = e; b.dataset.e = e;
+  b.onclick = () => { nueva.emoji = e; pintarModal(); };
+  $('#mIconos').appendChild(b);
+});
+PALETA.forEach((_, i) => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'punto'; b.dataset.c = i;
+  b.setAttribute('aria-label', 'Color ' + (i + 1));
+  b.style.setProperty('--cr', rgb(i));
+  b.onclick = () => { nueva.color = i; pintarModal(); };
+  $('#mColores').appendChild(b);
+});
+
+/* =====================================================================
+   COPIA DE SEGURIDAD
+   ===================================================================== */
+function exportar() {
+  const blob = new Blob([JSON.stringify(estado, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'control-gastos-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function importar(archivo) {
+  if (!archivo) return;
+  const lector = new FileReader();
+  lector.onload = () => {
+    try {
+      const d = validar(JSON.parse(lector.result));
+      if (!d) throw new Error('formato');
+      if (!confirm('Esto reemplazará tus datos actuales por los de la copia. ¿Continuar?')) return;
+      estado = d; guardar();
+      catSel = null; pintarCabecera(); pintarChips(); pintarMovs(); pintarTarjetas();
+    } catch (e) {
+      alert('No se pudo leer ese archivo. Elige una copia exportada desde esta app.');
+    }
+  };
+  lector.readAsText(archivo);
+}
+
+/* =====================================================================
+   BIENVENIDA
+   ===================================================================== */
+let modoB = estado.perfil ? 1 : 0;
+let bienvenidaActiva = true;
+
+function retraso(n) { return `style="animation-delay:${n}ms"`; }
+
+function pintarBienvenida() {
+  const c = $('#bc');
+  const t = totales();
+  let html = `<div class="gran-icono">€</div>`;
+  if (modoB === 0) {
+    html += `
+      <div class="ap mini-titulo" ${retraso(180)}>HOLA</div>
+      <h2 class="ap" ${retraso(280)}>Control de gastos</h2>
+      <p class="ap sub" ${retraso(380)}>Antes de empezar, ¿cómo te llamas?</p>
+      <div class="ap glass tarjeta-b" ${retraso(520)}>
+        <div class="t" style="margin-bottom:8px">Tu nombre</div>
+        <input class="campo" id="bNombre" placeholder="Tu nombre" maxlength="20" autocomplete="given-name" style="text-align:center;margin-bottom:8px">
+        <div class="pie">Solo se guarda en este dispositivo</div>
+      </div>
+      <button type="button" class="ap boton btn-grande" id="bBoton" ${retraso(700)} disabled>Continuar →</button>
+      <div class="ap pista" ${retraso(900)}><button type="button" class="link" id="bOmitir">Prefiero no decirlo</button></div>`;
+  } else {
+    const titulo = saludo() + (estado.nombre ? ', ' + esc(estado.nombre) : '');
+    const stats = estado.movs.length
+      ? `<div class="mini-stats"><div><small>Ingresos</small><b style="color:var(--verde)">${fmt(t.i)}</b></div>
+         <div><small>Gastos</small><b style="color:var(--rojo)">${fmt(t.g)}</b></div></div>`
+      : `<div class="t" style="padding-top:6px">Todo listo para tu primer movimiento</div>`;
+    html += `
+      <div class="ap mini-titulo" ${retraso(180)}>CONTROL DE GASTOS</div>
+      <h2 class="ap" ${retraso(280)}>${titulo}</h2>
+      <p class="ap sub" ${retraso(380)}>Tus finanzas, claras y sencillas.</p>
+      <div class="ap glass tarjeta-b" ${retraso(520)}>
+        <div class="t">Balance actual</div>
+        <div class="grande ${t.b < 0 ? 'neg' : ''}" id="bBalance">${fmt(0)}</div>
+        ${stats}
+      </div>
+      <button type="button" class="ap boton btn-grande" id="bBoton" ${retraso(700)}>Empezar →</button>
+      <div class="ap pista" ${retraso(900)}>o pulsa Enter</div>`;
+  }
+  c.innerHTML = html;
+
+  if (modoB === 0) {
+    const campo = $('#bNombre'), boton = $('#bBoton');
+    campo.addEventListener('input', () => { boton.disabled = !limpiarNombre(campo.value); });
+    campo.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); continuarNombre(); } });
+    boton.onclick = continuarNombre;
+    $('#bOmitir').onclick = () => guardarNombreYSeguir('');
+    setTimeout(() => { if (bienvenidaActiva && modoB === 0) campo.focus(); }, 1000);
+  } else {
+    $('#bBoton').onclick = empezar;
+    contarBalance(totales().b);
+  }
+}
+
+function contarBalance(valor) {
+  const el = $('#bBalance');
+  const inicio = performance.now() + 850, dur = 1300;
+  (function paso(ahora) {
+    if (!el.isConnected) return;
+    const p = Math.max(0, Math.min(1, (ahora - inicio) / dur));
+    el.textContent = fmt(valor * (1 - Math.pow(1 - p, 3)));
+    if (p < 1) requestAnimationFrame(paso);
+  })(performance.now());
+}
+
+function continuarNombre() {
+  const n = limpiarNombre($('#bNombre').value);
+  if (!n) { $('#bNombre').focus(); return; }
+  guardarNombreYSeguir(n);
+}
+
+function guardarNombreYSeguir(n) {
+  estado.nombre = n;
+  estado.perfil = true;
+  guardar();
+  pintarCabecera();
+  $('#bc').classList.add('fuera');
+  setTimeout(() => {
+    modoB = 1;
+    pintarBienvenida();
+    $('#bc').classList.remove('fuera');
+  }, 260);
+}
+
+function empezar() {
+  if (!bienvenidaActiva || modoB !== 1) return;
+  bienvenidaActiva = false;
+  $('#bienvenida').classList.add('salir');
+  setTimeout(() => $('#app').classList.add('ver'), 200);
+  setTimeout(() => { $('#bienvenida').style.display = 'none'; }, 700);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && bienvenidaActiva && modoB === 1) { e.preventDefault(); empezar(); }
+  if (e.key === 'Escape') cerrarModal();
+});
+
+/* =====================================================================
+   ARRANQUE
+   ===================================================================== */
+$('#segGasto').onclick = () => cambiarTipo('GASTO');
+$('#segIngreso').onclick = () => cambiarTipo('INGRESO');
+$('#btnEditar').onclick = () => { editando = !editando; pintarChips(); };
+$('#btnAnadir').onclick = anadir;
+$('#desc').addEventListener('keydown', e => { if (e.key === 'Enter') $('#monto').focus(); });
+$('#monto').addEventListener('keydown', e => { if (e.key === 'Enter') anadir(); });
+$('#saludo').onclick = cambiarNombre;
+$('#mCancelar').onclick = cerrarModal;
+$('#mCrear').onclick = crearCategoria;
+$('#mNombre').addEventListener('keydown', e => { if (e.key === 'Enter') crearCategoria(); });
+$('#modal').addEventListener('mousedown', e => { if (e.target === $('#modal')) cerrarModal(); });
+$('#btnExportar').onclick = exportar;
+$('#btnImportar').onclick = () => $('#archivo').click();
+$('#archivo').onchange = e => { importar(e.target.files[0]); e.target.value = ''; };
+
+pintarCabecera();
+pintarChips();
+pintarMovs();
+pintarTarjetas();
+pintarBienvenida();
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
